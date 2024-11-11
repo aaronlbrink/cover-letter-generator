@@ -1,0 +1,13 @@
+# This is a demo, rewrite & expand in your own words.
+# Note: underlined words will not be replaced.
+# Remove these comments before using.
+
+I am thrilled to be considered for the {role} role at {company_name}. I am confident in my abilities to contribute effectively to {company_name}'s team. 
+
+I am currently a software developer at __CURRENT_COMPANY__. My experience developing {stack_phrase}, as well as my experience deploying to {cloud_providers[0]}{deploy_tooling_phrase} aligns well with the requirements for your {stack_role} role.
+
+{company_name}'s {mission_verb} to {mission} excites me. I am passionate about __PASSION__, and I believe my background in {app_type} app development would be an asset to your team.
+
+I noticed the recent launch of {product}, and believe I could contribute to enhancing it. I think my work on __PREVIOUS_PROJECT__ would be directly applicable to {product}. 
+
+I look forward to the possibility of discussing this exciting opportunity with you. Thank you again for your consideration, I hope to discuss my application with you soon. I am available at __PHONE__ or __EMAIL__.

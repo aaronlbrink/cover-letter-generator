@@ -14,7 +14,6 @@ source env/bin/activate  # For Unix/macOS
 # OR
 .\env\Scripts\activate  # For Windows
 
-python -m pip install -r requirements.txt
 ```
 2. Create a paragraphs.txt file in the template directory (optionally copy from paragraphs.example.txt)
 3. Setup cover.tex and resume.tex with your information (optionally copy from cover.example.tex and resume.example.tex)

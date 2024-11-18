@@ -15,8 +15,16 @@ source env/bin/activate  # For Unix/macOS
 .\env\Scripts\activate  # For Windows
 
 ```
-2. Create a paragraphs.txt file in the template directory (optionally copy from paragraphs.example.txt)
-3. Setup cover.tex and resume.tex with your information (optionally copy from cover.example.tex and resume.example.tex)
-
-4. Run the script with `python apply.py`
+3. Install dependencies:
+```bash
+pip install -r requirements.txt
+```
+4. Create a paragraphs.txt file in the template directory (optionally copy from paragraphs.example.txt) 
+5. Setup cover.tex and resume.tex with your information (optionally copy from cover.example.tex and resume.example.tex)
+6. Create a .env file and set environment vars (script loads from .env file):
+  a. (Optional) APPLICATION_LOG_FILE to your desired log file
+  b. APPLICATIONS_DIR to the directory containing company directories
+  c. TEMPLATES_DIR to the directory containing cover.tex and resume.tex
+7. Create/touch your log file (make sure you've created it where you set APPLICATION_LOG_FILE is set to)
+8. Run the script with `python apply.py`
 

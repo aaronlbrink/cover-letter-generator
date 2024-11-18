@@ -120,11 +120,11 @@ class Document:
     ):
         self.header += f"""
 \\bigskip \\\\{date} \\bigskip \n\\\\
-{recruiters_name} \\newline
-{recruiters_title} \\newline
-{company_name} \\newline
-{address_line_1} \\newline
-{address_line_2} \\newline
+{recruiters_name + " \\newline" if recruiters_name else ""}
+{recruiters_title + " \\newline" if recruiters_title else ""}
+{company_name + " \\newline" if company_name else ""}
+{address_line_1 + " \\newline" if address_line_1 else ""}
+{address_line_2 + " \\newline" if address_line_2 else ""}
 """
 
     def doc_to_latax(self):

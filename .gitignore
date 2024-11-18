@@ -16,5 +16,5 @@ other/
 *.toc
 *.bbl
 *.blg
-synctex.gz
+*.synctex.gz
 ai.py

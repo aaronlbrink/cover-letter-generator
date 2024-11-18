@@ -11,14 +11,6 @@ from typing import Tuple
 
 from dotenv import load_dotenv
 
-COMPANIES_DIR = Path(os.getenv("APPLICATIONS_DIR"))
-TEMPLATE_DIR = Path(os.getenv("TEMPLATES_DIR"))
-PARAGRAPHS_FILE = Path(TEMPLATE_DIR / "paragraphs.txt")
-
-if not PARAGRAPHS_FILE.exists():
-  print(f"Error: {PARAGRAPHS_FILE} not found")
-  sys.exit(1)
-
 
 @dataclass
 class CompanyDetails:
@@ -406,4 +398,12 @@ def main():
 
 if __name__ == "__main__":
   load_dotenv()
+  COMPANIES_DIR = Path(os.getenv("APPLICATIONS_DIR"))
+  TEMPLATE_DIR = Path(os.getenv("TEMPLATES_DIR"))
+  PARAGRAPHS_FILE = Path(TEMPLATE_DIR / "paragraphs.txt")
+
+  if not PARAGRAPHS_FILE.exists():
+    print(f"Error: {PARAGRAPHS_FILE} not found")
+    sys.exit(1)
+
   main()

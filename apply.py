@@ -11,6 +11,14 @@ from typing import Tuple
 
 from dotenv import load_dotenv
 
+COMPANIES_DIR = Path(os.getenv("APPLICATIONS_DIR"))
+TEMPLATE_DIR = Path(os.getenv("TEMPLATES_DIR"))
+PARAGRAPHS_FILE = Path(TEMPLATE_DIR / "paragraphs.txt")
+
+if not PARAGRAPHS_FILE.exists():
+  print(f"Error: {PARAGRAPHS_FILE} not found")
+  sys.exit(1)
+
 
 @dataclass
 class CompanyDetails:
@@ -279,16 +287,13 @@ def process_closures(details: CompanyDetails, cl_path: Path, res_path: Path):
       "company_name": closures[2],
   }
 
-  # Get additional inputs
-  mission_verb = input("Provide the company's mission verb: to...")
-  template_vars["mission_verb"] = mission_verb or "aim"
-
-  mission = input("Provide the company's mission: to...")
+  mission = input(
+      "Provide the company's mission: Company XZY's (you write:) 'aim to build things' excites me")
   template_vars["mission"] = mission
 
-  product = input(
-      "Provide a new product launched by the company: product name: ")
-  template_vars["product"] = product
+  # product = input(
+  #     "Provide a new product launched by the company: product name: ")
+  # template_vars["product"] = product
 
   # Add formatted paragraphs
   for paragraph in paragraphs:
@@ -398,12 +403,4 @@ def main():
 
 if __name__ == "__main__":
   load_dotenv()
-  COMPANIES_DIR = Path(os.getenv("APPLICATIONS_DIR"))
-  TEMPLATE_DIR = Path(os.getenv("TEMPLATES_DIR"))
-  PARAGRAPHS_FILE = Path(TEMPLATE_DIR / "paragraphs.txt")
-
-  if not PARAGRAPHS_FILE.exists():
-    print(f"Error: {PARAGRAPHS_FILE} not found")
-    sys.exit(1)
-
   main()

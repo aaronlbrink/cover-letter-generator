@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import json
 import os
 import shutil
 import string
@@ -11,14 +12,14 @@ from typing import Tuple
 
 from dotenv import load_dotenv
 
-load_dotenv()
-COMPANIES_DIR = Path(os.getenv("APPLICATIONS_DIR"))
-TEMPLATE_DIR = Path(os.getenv("TEMPLATES_DIR"))
-PARAGRAPHS_FILE = Path(TEMPLATE_DIR / "paragraphs.txt")
+# load_dotenv()
+# COMPANIES_DIR = Path(os.getenv("APPLICATIONS_DIR"))
+# TEMPLATE_DIR = Path(os.getenv("TEMPLATES_DIR"))
+# PARAGRAPHS_FILE = Path(TEMPLATE_DIR / "paragraphs.txt")
 
-if not PARAGRAPHS_FILE.exists():
-  print(f"Error: {PARAGRAPHS_FILE} not found")
-  sys.exit(1)
+# if not PARAGRAPHS_FILE.exists():
+#   print(f"Error: {PARAGRAPHS_FILE} not found")
+#   sys.exit(1)
 
 
 @dataclass
@@ -57,39 +58,14 @@ RES_TITLE_OPTIONS = [
 ]
 
 
-def get_recent_companies(limit: int = 8) -> list[Path]:
-  """Get most recently created company directories"""
-  dirs = []
-  for dir_path in COMPANIES_DIR.glob("*/"):
-    if dir_path.is_dir():
-      dirs.append((dir_path.stat().st_ctime, dir_path))
-
-  return [d[1] for d in sorted(dirs, reverse=True)[:limit]]
-
-
-def create_company_dir(company_name: str) -> Path:
-  """Create and return company directory path"""
-  dir_name = company_name.lower().replace(' ', '-')
-  company_dir = COMPANIES_DIR / dir_name
-  if company_dir.exists():
-    counter = 1
-    while (COMPANIES_DIR / f"{dir_name}_{counter}").exists():
-      counter += 1
-    company_dir = COMPANIES_DIR / f"{dir_name}_{counter}"
-
-  company_dir.mkdir(parents=True)
-  (company_dir / "temp").mkdir()
-  return company_dir
-
-
-def setup_documents(temp_dir: Path) -> Tuple[Path, Path]:
+def clone_docs(temp_dir: Path) -> Tuple[Path, Path]:
   """Setup and return paths for cover letter and resume"""
   # Copy templates
   cover_path = temp_dir / "cover-letter.tex"
   resume_path = temp_dir / "resume.tex"
 
-  shutil.copy(TEMPLATE_DIR / "cover.tex", cover_path)
-  shutil.copy(TEMPLATE_DIR / "resume.tex", resume_path)
+  shutil.copy("template" / "cover.tex", cover_path)
+  shutil.copy("template" / "resume.tex", resume_path)
 
   return cover_path, resume_path
 
@@ -308,83 +284,71 @@ def process_closures(details: CompanyDetails, cl_path: Path, res_path: Path):
     file.write(modified_contents)
 
 
-def add_company():
+def add_company(data):
   """Add new company workflow"""
   # Get company details
-  company_name = input("Company Name: ").strip()
-  # Check application history for this company
-  log_file = os.getenv("APPLICATION_LOG_FILE")
-  if log_file and Path(log_file).exists():
-    previous_apps = []
-    with open(log_file, "r") as f:
-      for line in f:
-        try:
-          date, comp, role, title = line.strip().split("; ")
-        except ValueError:
-          continue  # Skip malformed lines
-        if comp.lower() == company_name.lower():
-          previous_apps.append((date, role, title))
+  template = data.template_vars
+  company = data.company
 
-    if previous_apps:
-      print(
-          f"\nWARNING: You have previously applied to {company_name} {len(previous_apps)} time(s):")
-      for date, role, title in previous_apps:
-        print(f"- {date}: {role} ({title})")
-      proceed = input(
-          "\nDo you want to continue with this application? [y/N]: ")
-      if proceed.lower() != "y":
-        sys.exit(0)
-      print()
+  company_name = company.name
   details = CompanyDetails(
       company_name=company_name,
-      recruiters_name=input(
-          "Recruiter's name [Hiring Manager]: ").strip() or "Hiring Manager",
-      recruiters_title=input("Recruiter's title (optional): ").strip(),
-      company_address_ln1=input("Company address line 1 (optional): ").strip(),
-      company_address_ln2=input("Company address line 2 (optional): ").strip(),
-      role=input("Role title: ").strip()
+      recruiters_name=company.recruiters_name,
+      recruiters_title=company.recruiters_title,
+      company_address_ln1=company.address_ln1,
+      company_address_ln2=company.address_ln2,
+      role=company.role
   )
 
   # Get resume title selection
-  print("\nWhich title would you like to use on your resume?")
-  for i, title in enumerate(RES_TITLE_OPTIONS, 1):
-    print(f"{i}) {title}")
+  # print("\nWhich title would you like to use on your resume?")
+  # for i, title in enumerate(RES_TITLE_OPTIONS, 1):
+  #   print(f"{i}) {title}")
 
-  while True:
-    try:
-      title_idx = int(input("Choose number: ")) - 1
-      if 0 <= title_idx < len(RES_TITLE_OPTIONS):
-        break
-      print(f"Please enter a number between 1 and {len(RES_TITLE_OPTIONS)}")
-    except ValueError:
-      print("Please enter a valid number")
-  details.res_title = RES_TITLE_OPTIONS[title_idx]
-  print(f"You selected: {details.res_title}")
+  # while True:
+  #   try:
+  #     title_idx = int(input("Choose number: ")) - 1
+  #     if 0 <= title_idx < len(RES_TITLE_OPTIONS):
+  #       break
+  #     print(f"Please enter a number between 1 and {len(RES_TITLE_OPTIONS)}")
+  #   except ValueError:
+  #     print("Please enter a valid number")
+  # details.res_title = RES_TITLE_OPTIONS[title_idx]
+  # print(f"You selected: {details.res_title}")
 
   # Create company directory and process documents
-  company_dir = create_company_dir(details.company_name)
-  temp_dir = company_dir / "temp"
-  cl_path, res_path = setup_documents(temp_dir)
+  # company_dir = create_company_dir(details.company_name)
+  try:
+    temp_dir = "web_temp"
+    os.makedirs(temp_dir, exist_ok=True)
+    cl_path, res_path = clone_docs(temp_dir)
 
-  # Process closures and generate PDFs
-  process_closures(details, cl_path, res_path)
-  gen_pdf(cl_path, company_dir)
-  gen_pdf(res_path, company_dir)
+    # Process closures and generate PDFs
+    process_closures(details, cl_path, res_path)
+    gen_pdf(cl_path, temp_dir)
+    gen_pdf(res_path, temp_dir)
+  finally:
+    # Clean up
+    try:
+      os.rmdir(temp_dir)
+      print(f"Directory '{temp_dir}' has been removed.")
+    except OSError as e:
+      print(f"Error: {e.strerror}")
 
-  # Save company details
-  with open(company_dir / "company.txt", 'w') as f:
-    for field in details.__dataclass_fields__:
-      f.write(f"{field}={getattr(details, field)}\n")
+  # # Save company details
+  # with open(company_dir / "company.txt", 'w') as f:
+  #   for field in details.__dataclass_fields__:
+  #     f.write(f"{field}={getattr(details, field)}\n")
 
-  log_file = os.getenv("APPLICATION_LOG_FILE")
-  print(f"log file: {log_file}")
-  if log_file:
-    date = datetime.now().strftime("%Y-%m-%d")
-    log_entry = f"{date}; {details.company_name}; {details.role}; {details.res_title}\n"
-    with open(log_file, "r+") as f:
-      content = f.read()
-      f.seek(0)
-      f.write(log_entry + content)
+  # log_file = os.getenv("APPLICATION_LOG_FILE")
+  # print(f"log file: {log_file}")
+  # if log_file:
+  #   date = datetime.now().strftime("%Y-%m-%d")
+  #   log_entry = f"{date}; {details.company_name}; {details.role}; {details.res_title}\n"
+  #   with open(log_file, "r+") as f:
+  #     content = f.read()
+  #     f.seek(0)
+  #     f.write(log_entry + content)
 # def regen():
 #   """Regenerate company documents workflow"""
 #   recent_companies = get_recent_companies()
@@ -412,20 +376,13 @@ def add_company():
 #   gen_pdf(res_path, company_dir)
 
 
-def main():
-  if len(sys.argv) == 2:
-    if sys.argv[1] == "regen":
-      print("TODO: Reimplement regen. Regen is disabled")
-      # regen()
-    elif sys.argv[1] == "batch":
-      while True:
-        add_company()
-        if input("Add another? (y/n): ").lower() != 'y':
-          break
-  else:
-    add_company()
-
-
 if __name__ == "__main__":
-  load_dotenv()
-  main()
+  args = sys.argv
+  print("to be json: ", args[1])
+  try:
+    data = json.loads(args[1])
+    print("Parsed data:", data)
+  except json.JSONDecodeError:
+    print("Invalid JSON string provided.")
+  # load_dotenv()
+  add_company(data)

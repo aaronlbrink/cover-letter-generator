@@ -21,3 +21,5 @@ ai.py
 *.env
 
 env/
+
+**/node_modules

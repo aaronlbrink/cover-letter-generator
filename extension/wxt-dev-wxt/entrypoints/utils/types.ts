@@ -7,9 +7,15 @@ export interface IPageData {
   company_mission: string;
 }
 
+export interface IClosure {
+  template: string;
+  value: string;
+}
+
 export interface ITemplate {
   name: string;
   paragraphs: string;
+  closures: IClosure[];
 }
 
 export interface ICoverParagraphs {

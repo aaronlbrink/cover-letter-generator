@@ -3,6 +3,8 @@ import { coverParagraphs } from '../utils/storage';
 // Custom hook for paragraph-related state
 export function useParagraphs(pageUrl: string) {
   const [draftParagraphs, setDraftParagraphs] = useState("");
+  const [generatedParagraphs, setGeneratedParagraphs] = useState("")
+  const [lockDraftParagraphs, setLockDraftParagraphs] = useState(false)
 
   useEffect(() => {
     const loadParagraphs = async () => {
@@ -34,5 +36,5 @@ export function useParagraphs(pageUrl: string) {
     return () => clearTimeout(timeoutId);
   }, [draftParagraphs, pageUrl]);
 
-  return { draftParagraphs, setDraftParagraphs };
+  return { draftParagraphs, setDraftParagraphs, generatedParagraphs, setGeneratedParagraphs, lockDraftParagraphs, setLockDraftParagraphs };
 }

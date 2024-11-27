@@ -3,8 +3,8 @@ import { IExtraction } from "../utils/types";
 import { haveLLMParsePage } from "./chatGPT";
 
 export function useExtractions(pageUrl: string) {
-  const [LLMExtractions, setLLMExtractions] = useState<object>({});
-  const [extractions, setExtractions] = useState<IExtraction[]>();
+  const [LLMExtractions, setLLMExtractions] = useState<any>({});
+  const [extractions, setExtractions] = useState<IExtraction[]>([]);
   const [pageData, setPageData] = useState<string>("");
   useEffect(() => {
     const loadExtractions = async () => {
@@ -22,12 +22,8 @@ export function useExtractions(pageUrl: string) {
       (async () => {
         let extractionKeys = extractions.map(ext => ext.key)
         let cachedResponses = await llmResponseCache.getValue();
-        console.log("CR:")
 
         const lookupSiteInCache = cachedResponses && cachedResponses.length >= 1 && cachedResponses.find(v => v.page_url === pageUrl);
-        console.log(pageUrl)
-        console.log(lookupSiteInCache)
-        console.log('----')
         // console.log(cachedResponses)
         if (!lookupSiteInCache) {
           const LLMExtractions = await haveLLMParsePage(pageData, extractionKeys)

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { llmResponseCache } from '../utils/storage';
+import { globalClosures, llmResponseCache } from '../utils/storage';
+import { IClosure, IExtraction } from '../utils/types';
 import { GenerateTabPage } from './tabs/GenerateTabPage';
 import { SettingsTabPage } from './tabs/SettingsTabPage';
 import { Tab } from './tabs/Tab';
@@ -10,6 +11,36 @@ import { useTemplates } from './useTemplates';
 
 const tabs = ["Generate", "Settings"]
 
+const useGlobalClosures = () => {
+  const [globalClosuresState, setGlobalClosuresState] = useState<IClosure[]>([]);
+
+  useEffect(() => {
+    const loadGlobalClosures = async () => {
+      const savedGlobalClosures = await globalClosures.getValue();
+      setGlobalClosuresState(savedGlobalClosures);
+    };
+    loadGlobalClosures();
+  }, []);
+
+
+  // Debounced save effect
+  useEffect(() => {
+
+    const timeoutId = setTimeout(async () => {
+      if (!globalClosuresState) return;
+
+      await globalClosures.setValue(globalClosuresState);
+    }, 2000);
+
+    return () => clearTimeout(timeoutId);
+  }, [globalClosuresState]);
+
+  return {
+    globalClosuresState,
+    setGlobalClosuresState
+  }
+
+}
 
 function App() {
   const {
@@ -21,7 +52,7 @@ function App() {
     setNewTemplateName
   } = useTemplates();
   const [pageUrl, setPageUrl] = useState("");
-  const { draftParagraphs, setDraftParagraphs } = useParagraphs(pageUrl);
+  const { draftParagraphs, setDraftParagraphs, generatedParagraphs, setGeneratedParagraphs, setLockDraftParagraphs, lockDraftParagraphs } = useParagraphs(pageUrl);
   const [warnings, setWarnings] = useState<string[]>([]);
   const {
     LLMExtractions,
@@ -30,7 +61,12 @@ function App() {
     setExtractions,
     pageData,
     setPageData
-  } = useExtractions(pageUrl)
+  } = useExtractions(pageUrl);
+
+  const {
+    globalClosuresState,
+    setGlobalClosuresState
+  } = useGlobalClosures();
 
   const [activeTab, setActiveTab] = useState(0)
 
@@ -39,7 +75,113 @@ function App() {
   // const [newTemplateName, setNewTemplateName] = useState("");
   // const [templates, setTemplates] = useState<ITemplate[]>([]);
   const [showSaveToExistingTemplateButton, setShowSaveToExistingTemplateButton] = useState(false);
-  pageUrl
+
+  useEffect(() => {
+    const timeoutId = setTimeout(async () => {
+      // Update generated paragraphs (expanding variables) when draftParagraphs change
+      // const globalClosures = globalClosuresState.map(c => ({ key: c.template, value: c.value }))
+      // const extractionsClosures = extractions.map(c => {
+      //   if (LLMExtractions && LLMExtractions[c.key]) {
+      //     return { key: c.key, value: LLMExtractions[c.key] }
+      //   }
+      // })
+      generateParagraphs()
+    }, 2000);
+
+    return () => clearTimeout(timeoutId);
+
+  }, [draftParagraphs, globalClosuresState, extractions, LLMExtractions])
+
+  const generateParagraphs = (): string => {
+    const globalClosures = globalClosuresState.reduce((acc: any, curr: IClosure) => {
+      acc[curr.template] = curr.value; // Set the key-value pair in the accumulator
+      return acc; // Return the accumulator for the next iteration
+    }, {})
+    const extractionsClosures = extractions.reduce((acc: any, curr: IExtraction) => {
+      acc[curr.key] = LLMExtractions[curr.key]; // Set the key-value pair in the accumulator
+      return acc; // Return the accumulator for the next iteration
+    }, {})
+    const closures = {
+      ...globalClosures,
+      ...extractionsClosures
+    }
+
+    const transformer_fns = {
+      testFn: (a: string, b: string) => console.log(a, b),
+      ix: (l1: string[], l2: string[]) => {
+        const lowerCaseArr2 = l2.map(value => value.toLowerCase());
+        return l1.filter(value => lowerCaseArr2.includes(value.toLowerCase()));
+      },
+      ox: (str: string) => {
+        // Split the string into an array of items
+        const items = str.split(',').map(item => item.trim());
+
+        // Check the number of items
+        const count = items.length;
+
+        if (count === 0) {
+          return '';
+        } else if (count === 1) {
+          return items[0];
+        } else if (count === 2) {
+          return items.join(' and ');
+        } else {
+          // Join all but the last item with commas, and add " and " before the last item
+          return items.slice(0, count - 1).join(', ') + ' and ' + items[count - 1];
+        }
+      }
+    }
+
+    const regexClosurePattern = /{{([^{}]+)}}/g;
+    const regexFunctionPattern = /\{([^(]*)\(([^)]*)\)\}/g;
+    const regexToSplitParams = /,(?=(?:(?:[^'"{}[\]]*|["'][^"']*["']|{[^{}]*}|[[^][]*])*)*$)/g;
+    let draftParagraphClosures: { key: string; value: string; }[] = []
+    let generated = draftParagraphs;
+
+    while (true) {
+      console.log("am I in a foreverloop?")
+      draftParagraphClosures = [...generated
+        .matchAll(regexClosurePattern)]
+        .map(match => ({ key: match[1], value: closures[match[1]] }));
+      // console.log(draftParagraphClosures)
+      if (draftParagraphClosures.length > 0) {
+        // More {{ things }} to fill
+        generated = generated.replace(regexClosurePattern, (match, p1) => {
+          const replacement = draftParagraphClosures.find(c => c.key === p1)?.value
+          // console.log(match)
+          // console.log(replacement)
+          if (!replacement) {
+            // Notify user that we were unable to replace something
+          }
+          return replacement || ""
+        })
+      } else {
+        // all closures have been filled in!
+        break;
+      }
+    }
+
+    // Apply transformer functions to draftParagraphs w/ expanded closures 
+    generated = generated.replace(regexFunctionPattern, (match, funcName: string, params: string) => {
+      console.log("1")
+      // Split parameters by comma, but also handle nested {{}} correctly
+      if (funcName in transformer_fns) {
+        console.log("2")
+        // TODO: This line is slow, I think
+        let paramsArr: string[] = params.split(regexToSplitParams).map((item: string) => item.trim().replace(/^['"]|['"]$/g, ''));
+        console.log("3")
+        // console.log(params)
+        // console.log(transformer_fns[funcName](...params))
+        return transformer_fns[funcName](...paramsArr) || ""
+      } else {
+        console.log("Oh no you tried to use a transformer that doesn't exist. Notify user sometime too")
+      }
+
+    });
+    console.log('4')
+    setGeneratedParagraphs(generated)
+    return generated
+  }
 
   const openSettings = () => {
     chrome.runtime.openOptionsPage()
@@ -71,7 +213,6 @@ function App() {
       // Listen for messages from the content script
       chrome.runtime.onMessage.addListener(async (message) => {
         if (message.type === 'GET_PAGE_DATA') {
-
           setPageData(message.data)
         }
         if (message.type === 'GET_URL_DATA') {
@@ -92,29 +233,30 @@ function App() {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(requestBody),
+    }).catch((e) => {
+      console.log(e)
     });
+    if (response) {
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
 
-    if (!response.ok) {
-      throw new Error('Network response was not ok');
+      if (browser.downloads?.download != null) {
+        await browser.downloads.download({ url: blobUrl, filename: 'cover-' + (Math.random().toString()) });
+      } else {
+        setWarnings([...warnings, "Downloads API not supported"])
+      }
+      URL.revokeObjectURL(blobUrl);
     }
-
-    const blob = await response.blob();
-    const blobUrl = URL.createObjectURL(blob);
-
-    if (browser.downloads?.download != null) {
-      await browser.downloads.download({ url: blobUrl, filename: 'cover-' + (pageUrl || Math.random().toString()) });
-    } else {
-      setWarnings([...warnings, "Downloads API not supported"])
-    }
-    URL.revokeObjectURL(blobUrl);
   }
 
 
   const handleGeneratePDF = async () => {
+    let generatedParagraphsOnDemandOrFromState = generatedParagraphs;
+    if (!generatedParagraphsOnDemandOrFromState) {
+      generatedParagraphsOnDemandOrFromState = generateParagraphs()
+    }
     await downloadFile('http://localhost:3000', {
-      template_vars: {},
-      company: {
-      }
+      generatedParagraphs: generatedParagraphsOnDemandOrFromState
     })
 
   }
@@ -133,12 +275,12 @@ function App() {
 
   return (
     <>
-      <h2>Cover Gen</h2>
-      {pageUrl && <p>Current URL: {pageUrl}</p>}
+      <h2 className='dark:text-white'>Cover Gen</h2>
+      {pageUrl && <p className='dark:text-white'>Current URL: {pageUrl}</p>}
       {
-        warnings.length !== 0 && <div className="warnings-container">
-          <h2>Warnings</h2>
-          <p>This extension may not function as expected. Please notify the developer.</p>
+        warnings.length !== 0 && <div className="bg-yellow-200 dark:bg-yellow-900">
+          <h2 className='dark:text-white'>Warnings</h2>
+          <p className='dark:text-yellow-50'>This extension may not function as expected. Please notify the developer.</p>
           {warnings.map((warning, index) => (
             <p key={index}>{warning}</p>
           ))}
@@ -163,6 +305,10 @@ function App() {
             newTemplateName,
             setNewTemplateName,
             handleGeneratePDF,
+            generatedParagraphs,
+            setGeneratedParagraphs,
+            setLockDraftParagraphs,
+            lockDraftParagraphs
           }} />
         </>
       </Tab>
@@ -184,11 +330,15 @@ function App() {
           setNewTemplateName,
           handleGeneratePDF,
           extractions,
-          setExtractions
+          setExtractions,
+          globalClosuresState,
+          setGlobalClosuresState
         }} />
       </Tab>
-      <button onClick={openSettings}>Open Settings</button>
-      <button onClick={reEvaluatePage}>Re-evaluate Page Content</button>
+      <div className="container flex-initial">
+        <button className="dark:text-gray-500" onClick={openSettings}>Open Settings</button>
+        <button className="dark:text-gray-500" onClick={reEvaluatePage}>Re-evaluate Page Content</button>
+      </div>
     </>
   );
 }

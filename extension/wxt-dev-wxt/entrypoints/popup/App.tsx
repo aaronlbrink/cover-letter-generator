@@ -106,17 +106,15 @@ function App() {
       ...extractionsClosures
     }
 
-    const transformer_fns = {
+    const transformer_fns: { [f: string]: (...args: any) => void | string | string[] } = {
       testFn: (a: string, b: string) => console.log(a, b),
       ix: (l1: string[], l2: string[]) => {
         const lowerCaseArr2 = l2.map(value => value.toLowerCase());
         return l1.filter(value => lowerCaseArr2.includes(value.toLowerCase()));
       },
       ox: (str: string) => {
-        // Split the string into an array of items
         const items = str.split(',').map(item => item.trim());
 
-        // Check the number of items
         const count = items.length;
 
         if (count === 0) {
@@ -139,7 +137,6 @@ function App() {
     let generated = draftParagraphs;
 
     while (true) {
-      console.log("am I in a foreverloop?")
       draftParagraphClosures = [...generated
         .matchAll(regexClosurePattern)]
         .map(match => ({ key: match[1], value: closures[match[1]] }));
@@ -162,7 +159,7 @@ function App() {
     }
 
     // Apply transformer functions to draftParagraphs w/ expanded closures 
-    generated = generated.replace(regexFunctionPattern, (match, funcName: string, params: string) => {
+    generated = generated.replace(regexFunctionPattern, (_: string, funcName: string, params: string) => {
       console.log("1")
       // Split parameters by comma, but also handle nested {{}} correctly
       if (funcName in transformer_fns) {
@@ -172,9 +169,14 @@ function App() {
         console.log("3")
         // console.log(params)
         // console.log(transformer_fns[funcName](...params))
-        return transformer_fns[funcName](...paramsArr) || ""
+        const tf = transformer_fns[funcName](...paramsArr) || ""
+        if (tf && typeof tf === "string") {
+          return tf
+        }
+        return ""
       } else {
         console.log("Oh no you tried to use a transformer that doesn't exist. Notify user sometime too")
+        return ""
       }
 
     });

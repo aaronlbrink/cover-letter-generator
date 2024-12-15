@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { globalClosures, llmResponseCache } from '../utils/storage';
+import { coverParagraphs, globalClosures, llmResponseCache } from '../utils/storage';
 import { IClosure, IExtraction } from '../utils/types';
 import { GenerateTabPage } from './tabs/GenerateTabPage';
 import { SettingsTabPage } from './tabs/SettingsTabPage';
@@ -52,7 +52,7 @@ function App() {
     setNewTemplateName
   } = useTemplates();
   const [pageUrl, setPageUrl] = useState("");
-  const { draftParagraphs, setDraftParagraphs, generatedParagraphs, setGeneratedParagraphs, setLockDraftParagraphs, lockDraftParagraphs } = useParagraphs(pageUrl);
+  const { draftParagraphs, setDraftParagraphs, generatedParagraphs, setGeneratedParagraphs, setLockDraftParagraphs, lockDraftParagraphs, paragraphsStoragePosition, setParagraphsStoragePosition } = useParagraphs(pageUrl);
   const [warnings, setWarnings] = useState<string[]>([]);
   const {
     LLMExtractions,
@@ -69,12 +69,11 @@ function App() {
   } = useGlobalClosures();
 
   const [activeTab, setActiveTab] = useState(0)
+  const [coverName, setCoverName] = useState("")
+  const [test, setTest] = useState();
 
-  // const [showSaveOrAddButton, setShowSaveOrAddButton] = useState(false);
-  // const [selectedTemplate, setSelectedTemplate] = useState("new_template");
-  // const [newTemplateName, setNewTemplateName] = useState("");
-  // const [templates, setTemplates] = useState<ITemplate[]>([]);
   const [showSaveToExistingTemplateButton, setShowSaveToExistingTemplateButton] = useState(false);
+
 
   useEffect(() => {
     const timeoutId = setTimeout(async () => {
@@ -93,6 +92,9 @@ function App() {
   }, [draftParagraphs, globalClosuresState, extractions, LLMExtractions])
 
   const generateParagraphs = (): string => {
+    if (lockDraftParagraphs) {
+      return ""
+    }
     const globalClosures = globalClosuresState.reduce((acc: any, curr: IClosure) => {
       acc[curr.template] = curr.value; // Set the key-value pair in the accumulator
       return acc; // Return the accumulator for the next iteration
@@ -204,7 +206,13 @@ function App() {
       }
     }
     // setShowSaveOrAddButton(false);
-  }, [selectedTemplate])
+  }, [selectedTemplate]);
+
+  useEffect(() => {
+    if (extractions && LLMExtractions && LLMExtractions["company_name"]) {
+      setCoverName(LLMExtractions["company_name"])
+    }
+  }, [LLMExtractions, extractions])
 
   useEffect(() => {
     // Get the current active tab
@@ -243,7 +251,7 @@ function App() {
       const blobUrl = URL.createObjectURL(blob);
 
       if (browser.downloads?.download != null) {
-        await browser.downloads.download({ url: blobUrl, filename: 'cover-' + (Math.random().toString()) });
+        await browser.downloads.download({ url: blobUrl, filename: 'cover-' + coverName + ".pdf" });
       } else {
         setWarnings([...warnings, "Downloads API not supported"])
       }
@@ -251,16 +259,33 @@ function App() {
     }
   }
 
+  useEffect(() => {
+    (async () => {
+      const ds = await coverParagraphs.getValue();
+      setTest(ds)
+
+    })()
+  }, [])
+
+  const t = () => {
+    setTimeout(async () => {
+      const ds = await coverParagraphs.getValue();
+      setTest(ds)
+    }, 5000)
+  }
+  t();
+
 
   const handleGeneratePDF = async () => {
     let generatedParagraphsOnDemandOrFromState = generatedParagraphs;
     if (!generatedParagraphsOnDemandOrFromState) {
-      generatedParagraphsOnDemandOrFromState = generateParagraphs()
+      if (!generatedParagraphs) {
+        generatedParagraphsOnDemandOrFromState = generateParagraphs();
+      }
     }
-    await downloadFile('http://localhost:3000', {
+    await downloadFile('http://localhost:3018', {
       generatedParagraphs: generatedParagraphsOnDemandOrFromState
     })
-
   }
 
   const reEvaluatePage = async () => {
@@ -275,10 +300,39 @@ function App() {
     }
   }
 
+
+  const globalishState = {
+    pageUrl,
+    warnings,
+    LLMExtractions,
+    selectedTemplate,
+    setSelectedTemplate,
+    templates,
+    draftParagraphs,
+    setDraftParagraphs,
+    setTemplates,
+    showSaveOrAddButton,
+    setShowSaveToExistingTemplateButton,
+    showSaveToExistingTemplateButton,
+    newTemplateName,
+    setNewTemplateName,
+    handleGeneratePDF,
+    generatedParagraphs,
+    setGeneratedParagraphs,
+    setLockDraftParagraphs,
+    lockDraftParagraphs,
+    paragraphsStoragePosition,
+    setParagraphsStoragePosition,
+    coverName,
+    setCoverName,
+    extractions,
+    globalClosuresState,
+    setExtractions,
+    setGlobalClosuresState,
+  }
+
   return (
     <>
-      <h2 className='dark:text-white'>Cover Gen</h2>
-      {pageUrl && <p className='dark:text-white'>Current URL: {pageUrl}</p>}
       {
         warnings.length !== 0 && <div className="bg-yellow-200 dark:bg-yellow-900">
           <h2 className='dark:text-white'>Warnings</h2>
@@ -291,51 +345,11 @@ function App() {
       <TabBar tabs={tabs} activeTab={activeTab} setActiveTab={setActiveTab} />
       <Tab tabNumber={0} activeTab={activeTab}>
         <>
-          <GenerateTabPage state={{
-            pageUrl,
-            warnings,
-            LLMExtractions,
-            selectedTemplate,
-            setSelectedTemplate,
-            templates,
-            draftParagraphs,
-            setDraftParagraphs,
-            setTemplates,
-            showSaveOrAddButton,
-            setShowSaveToExistingTemplateButton,
-            showSaveToExistingTemplateButton,
-            newTemplateName,
-            setNewTemplateName,
-            handleGeneratePDF,
-            generatedParagraphs,
-            setGeneratedParagraphs,
-            setLockDraftParagraphs,
-            lockDraftParagraphs
-          }} />
+          <GenerateTabPage state={globalishState} />
         </>
       </Tab>
       <Tab tabNumber={1} activeTab={activeTab}>
-        <SettingsTabPage state={{
-          pageUrl,
-          warnings,
-          LLMExtractions,
-          selectedTemplate,
-          setSelectedTemplate,
-          templates,
-          draftParagraphs,
-          setDraftParagraphs,
-          setTemplates,
-          showSaveOrAddButton,
-          setShowSaveToExistingTemplateButton,
-          showSaveToExistingTemplateButton,
-          newTemplateName,
-          setNewTemplateName,
-          handleGeneratePDF,
-          extractions,
-          setExtractions,
-          globalClosuresState,
-          setGlobalClosuresState
-        }} />
+        <SettingsTabPage state={globalishState} />
       </Tab>
       <div className="container flex-initial">
         <button className="dark:text-gray-500" onClick={openSettings}>Open Settings</button>

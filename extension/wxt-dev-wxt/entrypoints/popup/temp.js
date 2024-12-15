@@ -12,7 +12,7 @@ function fillInClosures() {
   console.log("matches")
   console.log(draftParagraphClosures)
   for (const closure of draftParagraphClosures) {
-    let stack: string[] = [];
+    let stack = [];
     // initial:
     while ((match = regex.exec(closure.value)) !== null) {
       if (closures[match[1]]) {
